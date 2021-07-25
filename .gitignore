@@ -1,0 +1,18 @@
+bin
+obj
+appsettings.json
+local.settings.json
+/handler
+dist/azureog
+dist/handler
+*.rpm
+*.deb
+!dummy.deb
+*.apk
+coverage.txt
+dist
+.DS_Store
+.envrc
+# binary
+handler
+.vscode
