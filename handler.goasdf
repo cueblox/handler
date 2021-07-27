@@ -1,0 +1,70 @@
+package main
+
+import (
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	"github.com/cueblox/blox/content"
+	"github.com/h2non/imaginary"
+)
+
+var repo *content.Service
+var hf http.HandlerFunc
+var h http.Handler
+var imgHandler http.Handler
+var static bool
+var staticDir string
+
+func init() {
+	userConfig, err := ioutil.ReadFile("blox.cue")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	repo, err := content.NewService(string(userConfig), true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hf, err = repo.GQLHandlerFunc()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	h, err = repo.GQLPlaygroundHandler()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	staticDir, err = repo.Cfg.GetString("static_dir")
+	if err != nil {
+		log.Println("No static_dir in config, not serving static files.")
+	} else {
+		log.Printf("Serving static files from %s\n", staticDir)
+		static = true
+	}
+
+	var options imaginary.ServeOptions
+	options.PathPrefix = "/img"
+	options.
+		imgHandler = imaginary.NewServerMux(options)
+
+}
+
+func main() {
+	listenAddr := ":8080"
+	if val, ok := os.LookupEnv("PORT"); ok {
+		listenAddr = ":" + val
+	}
+	if static {
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(".", staticDir)))))
+	}
+	http.HandleFunc("/api", hf)
+	http.Handle("/api/ui", h)
+	http.Handle("/img", imgHandler)
+	log.Printf("About to listen on %s. Go to https://127.0.0.1%s/", listenAddr, listenAddr)
+	log.Fatal(http.ListenAndServe(listenAddr, nil))
+}
